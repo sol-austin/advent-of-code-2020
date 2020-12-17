@@ -1,76 +1,86 @@
+from copy import deepcopy
 f = open('text.txt', 'r')
-doc = f.read()
 
-conditions = [i.split(':')[1].lstrip().split(' or ') for i in doc.split('\nyour ticket')[0].split('\n')[:-1]]
-conditions = [item for sublist in conditions for item in sublist]
-my_ticket = doc.split('\nyour ticket:\n')[1].split('\nnearby tickets')[0].split(',')
-other_tickets = [i.split(',') for i in doc.split('\nnearby tickets:\n')[1].split('\n')]
-invalid_count = 0
-invalid_arr = []
+old_arr = [[list(i) for i in f.read().split('\n')]]
 
-def check_valid_value(value):
-    for condition in conditions:
-        lower_bound = int(condition.split('-')[0])
-        upper_bound = int(condition.split('-')[1])
-        if value >= lower_bound and value <= upper_bound:
-            return True
-    return False
+def getActiveNeighbors(arr, layer_idx, row_idx, col_val_idx):
+    active_count = 0
 
-for ticket in other_tickets:
-    for value in ticket:
-        value = int(value)
-        if not check_valid_value(value):
-            invalid_count += value
-            if ticket not in invalid_arr:
-                invalid_arr.append(ticket)
+    for x in range(-1, 2, 1):
+        layer_idx_loop = layer_idx + x
+        if layer_idx_loop < 0:
+            continue
+        for y in range(-1, 2, 1):
+            row_idx_loop = row_idx + y
+            if row_idx_loop < 0:
+                continue
+            for z in range(-1, 2, 1):
+                col_val_idx_loop = col_val_idx + z
+                if col_val_idx_loop < 0:
+                    continue
+                if x == 0 and y == 0 and z == 0:
+                    continue
+                try:
+                    value = arr[layer_idx_loop][row_idx_loop][col_val_idx_loop]
+                    if value == '#':
+                        active_count += 1
+                except:
+                    continue
 
-print(invalid_count)
+    return active_count
 
-# Part 2
-for invalid_ticket in invalid_arr:
-    other_tickets.remove(invalid_ticket)
 
-conditions = {i.split(': ')[0] : i.split(': ')[1].split(' or ') for i in doc.split('\nyour ticket')[0].split('\n')[:-1]}
 
-def check_condition_value(value, conditions_arr):
-    for condition in conditions_arr:
-        lower_bound = int(condition.split('-')[0])
-        upper_bound = int(condition.split('-')[1])
-        if lower_bound <= value <= upper_bound:
-            return True
-    return False
+def newActiveVal(arr, layer_idx, row_idx, col_val_idx):
+    active_count = getActiveNeighbors(arr, layer_idx, row_idx, col_val_idx)
+    if active_count == 2 or active_count == 3:
+        return '#'
+    else:
+        return '.'
 
-final_fields = {}
+def newInactiveVal(arr, layer_idx, row_idx, col_val_idx):
+    active_count = getActiveNeighbors(arr, layer_idx, row_idx, col_val_idx)
+    if active_count == 3:
+        return '#'
+    else:
+        return '.'
 
-for i in range(len(other_tickets[0])):
-    col = [x[i] for x in other_tickets]
-    poss_conditions = list(conditions.keys())
-    for value in col:
-        value = int(value)
-        for condition_name, conditions_arr in conditions.items():
-            if not check_condition_value(value, conditions_arr):
-                if condition_name in poss_conditions:
-                    poss_conditions.remove(condition_name)
+def addPadding(arr):
+    for layer in arr:
+        layer.append(list(len(layer[0])*'.'))
+        layer.insert(0, list(len(layer[0])*'.'))
+        for row in layer:
+            row.append('.')
+            row.insert(0, '.')
+    arr.append([list(len(arr[0]) * '.') for i in range(len(arr[0]))])
+    arr.insert(0, [list(len(arr[0]) * '.') for i in range(len(arr[0]))])
+    return arr
 
-    final_fields[i] = poss_conditions
+count = 0
+new_arr = []
+old_arr = addPadding(old_arr)
 
-    if len(poss_conditions) == 1:
-        del conditions[poss_conditions[0]]
-    #else:
-        #raise Exception('Possible conditions array is too long')
+while True:
+    count += 1
+    new_arr = deepcopy(old_arr)
+    for layer_idx, layer in enumerate(old_arr):
+        for row_idx, row in enumerate(layer):
+            for col_val_idx, col_val in enumerate(row):
+                if col_val == '#':
+                    # Active
+                    new_arr[layer_idx][row_idx][col_val_idx] = newActiveVal(old_arr, layer_idx, row_idx, col_val_idx)
+                else:
+                    # Inactive
+                    new_arr[layer_idx][row_idx][col_val_idx] = newInactiveVal(old_arr, layer_idx, row_idx, col_val_idx)
+    old_arr = addPadding(deepcopy(new_arr))
+    if count == 6:
+        break
 
-def runloop():
-    for idx in range(len(final_fields.keys())):
-        val = final_fields[idx]
-        if len(val) == 1:
-            for key in final_fields.keys():
-                if val[0] in final_fields[key] and len(final_fields[key]) > 1:
-                    final_fields[key].remove(val[0])
-for x in range(20):
-    runloop()
-ans = 1
-for idx, value in final_fields.items():
-    value = value[0]
-    if 'departure' in value:
-        ans *= int(my_ticket[idx])
-print(ans)
+fin_count = 0
+
+for layer in old_arr:
+    for row in layer:
+        for val in row:
+            if val == '#':
+                fin_count += 1
+print(fin_count)
